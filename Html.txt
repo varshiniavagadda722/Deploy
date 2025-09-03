@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Voting Eligibility Checker</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; color-scheme: light; }
+    body { max-width: 720px; margin: 3rem auto; padding: 1rem; line-height: 1.5; }
+    header { text-align: center; margin-bottom: 1.5rem; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 1rem; box-shadow: 0 6px 18px rgba(0,0,0,0.03); }
+    label { display: block; margin-top: .75rem; font-weight: 600; }
+    input, select, button { width: 100%; padding: .6rem; margin-top: .25rem; border-radius: 6px; border: 1px solid #ccc; box-sizing: border-box; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    .muted { color: #666; font-weight: 400; font-size: .9rem; margin-top: .5rem; }
+    .result { margin-top: 1rem; padding: .8rem; border-radius: 8px; font-weight: 700; }
+    .eligible { background: #e6ffef; border: 1px solid #7ee2a6; color: #006b2c; }
+    .not-eligible { background: #fff0f0; border: 1px solid #ff9b9b; color: #8b0000; }
+    small { color: #555; display:block; margin-top:.4rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Voting Eligibility Checker</h1>
+    <p class="muted">Enter either your age or your date of birth, and confirm citizenship.</p>
+  </header>
+
+  <main class="card" aria-live="polite">
+    <form id="eligibilityForm" onsubmit="return false;">
+      <label for="age">Age (years)</label>
+      <input id="age" type="number" min="0" max="150" placeholder="e.g. 23" />
+
+      <div style="text-align:center; margin: .5rem 0;"><small>— or —</small></div>
+
+      <label for="dob">Date of birth</label>
+      <input id="dob" type="date" />
+
+      <label for="citizen">Are you a citizen of the country where you're voting?</label>
+      <select id="citizen" aria-label="citizenship">
+        <option value="">Select...</option>
+        <option value="yes">Yes — I am a citizen</option>
+        <option value="no">No — I am not a citizen</option>
+      </select>
+
+      <div class="row" style="margin-top: .75rem;">
+        <button id="checkBtn" type="button">Check Eligibility</button>
+        <button id="clearBtn" type="button">Clear</button>
+      </div>
+
+      <div id="message" class="result" style="display:none;"></div>
+
+      <p class="muted" style="margin-top:1rem;">
+        Note: This is a general check. Many countries require a minimum voting age of 18 — adjust rules if your country differs.
+      </p>
+    </form>
+  </main>
+
+  <script>
+    (function(){
+      const ageInput = document.getElementById('age');
+      const dobInput = document.getElementById('dob');
+      const citizenSelect = document.getElementById('citizen');
+      const message = document.getElementById('message');
+      const checkBtn = document.getElementById('checkBtn');
+      const clearBtn = document.getElementById('clearBtn');
+
+      // Change this if your country has a different voting age:
+      const MIN_VOTING_AGE = 18;
+
+      function calculateAgeFromDOB(dobString) {
+        if (!dobString) return null;
+        const today = new Date();
+        const dob = new Date(dobString + 'T00:00:00'); // avoid timezone shifts
+        if (isNaN(dob)) return null;
+        let age = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+          age--;
+        }
+        return age;
+      }
+
+      function showResult(text, eligible) {
+        message.style.display = 'block';
+        message.textContent = text;
+        message.className = 'result ' + (eligible ? 'eligible' : 'not-eligible');
+      }
+
+      function clearResult() {
+        message.style.display = 'none';
+        message.textContent = '';
+        message.className = 'result';
+      }
+
+      checkBtn.addEventListener('click', () => {
+        clearResult();
+        const citizen = citizenSelect.value;
+        const ageVal = parseInt(ageInput.value, 10);
+        const dobVal = dobInput.value;
+
+        // Validate citizenship
+        if (!citizen) {
+          showResult('Please confirm whether you are a citizen of the voting country.', false);
+          return;
+        }
+        if (citizen === 'no') {
+          showResult('Not eligible: you must be a citizen of the country to vote (in most jurisdictions).', false);
+          return;
+        }
+
+        // Prefer explicit age if provided, otherwise compute from dob
+        let age = null;
+        if (!isNaN(ageVal) && ageVal >= 0) {
+          age = ageVal;
+        } else if (dobVal) {
+          age = calculateAgeFromDOB(dobVal);
+        }
+
+        if (age === null) {
+          showResult('Please provide your age or date of birth to check eligibility.', false);
+          return;
+        }
+
+        if (age >= MIN_VOTING_AGE) {
+          showResult(`Eligible to vote (age ${age} ≥ ${MIN_VOTING_AGE}).`, true);
+        } else if (age >= 0) {
+          showResult(`Not eligible (age ${age} < ${MIN_VOTING_AGE}).`, false);
+        } else {
+          showResult('Invalid date of birth or age entered. Please check and try again.', false);
+        }
+      });
+
+      clearBtn.addEventListener('click', () => {
+        ageInput.value = '';
+        dobInput.value = '';
+        citizenSelect.value = '';
+        clearResult();
+      });
+    })();
+  </script>
+</body>
+</html>
